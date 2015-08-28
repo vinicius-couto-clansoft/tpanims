@@ -3,24 +3,27 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class PlayerController : MonoBehaviour {
+	private const float MAX_SPEED = 30f;	// Defined according to "run" animation
+	private iTween.EaseType FADE_EASETYPE = iTween.EaseType.easeOutCubic;
+
 	public enum Mode { FollowClick, AddToList };
+	[Header("Path building")]
 	public Mode MoveMode = Mode.FollowClick;
+	public float minDistanceBetweenPoints;
 
 	public enum Constraint { Time, Speed };
-	public Constraint movementConstraint;
+	[Header("Movement")]
+	public Constraint constraint;
 
-	public float movementSpeed;
-	public float movementTime;
+	[Range(0f, MAX_SPEED)]public float currentSpeed;
+	[Range(0f, MAX_SPEED)]public float targetSpeed;	// How fast should the player run.
+	public float targetTime;	// How long should it take to run the whole path. Speed is capped at MAX_SPEED
 
-	public float currentSpeed;
-	public float maxSpeed;
+	[HideInInspector] public List<Vector3> pathNodes;
 
-	public float minDistanceBetweenPoints;
-	public List<Vector3> pathNodes;
-
+	[Header("Objects references")]
 	public Collider fieldBounds;
 	private bool inField = true;
-	private iTween.EaseType fadeEaseType = iTween.EaseType.easeOutCubic;
 
 	private Animator animator;
 	public GameObject meshRenderer;
@@ -96,7 +99,8 @@ public class PlayerController : MonoBehaviour {
 		float pathLength = iTween.PathLength(waypoints);
 		float currentPercent = 0f;
 		float absOnePercent = iTween.PathLength (waypoints) * 0.01f;
-		currentSpeed = (movementConstraint == Constraint.Speed) ? movementSpeed : pathLength / movementTime;
+		currentSpeed = (constraint == Constraint.Speed) ? targetSpeed : pathLength / targetTime; // Only changes speed if constraint is time
+		currentSpeed = Mathf.Min (currentSpeed, MAX_SPEED);	// Limits speed to maxSpeed
 		animator.SetFloat ("speed", currentSpeed);
 
 		while(currentPercent < 1f)
@@ -122,7 +126,7 @@ public class PlayerController : MonoBehaviour {
 		iTween.FadeTo (meshRenderer, iTween.Hash (
 			"a", 0f,
 			"time", 0.5f,
-			"easetype", fadeEaseType
+			"easetype", FADE_EASETYPE
 		));
 	}
 
@@ -131,7 +135,7 @@ public class PlayerController : MonoBehaviour {
 		iTween.FadeTo (meshRenderer, iTween.Hash (
 			"a", 1f,
 			"time", 0.5f,
-			"easetype", fadeEaseType
+			"easetype", FADE_EASETYPE
 			));
 	}
 
