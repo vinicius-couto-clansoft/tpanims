@@ -118,25 +118,37 @@ public class PlayerController : MonoBehaviour {
 			pathNodes.Add (point);
 		}
 	}
-
-	//TODO: tentar usar um cronometro e implementar a desaceleração de acordo com o tempo.
-
-	public IEnumerator MoveThroughPath(List<Vector3> path)
+	
+	public IEnumerator MoveThroughPath(List<Vector3> waypoints)
 	{
 		isMoving = true;
-		Vector3[] waypoints = path.ToArray ();
-		float pathLength = iTween.PathLength(waypoints);
+		Vector3[] path = waypoints.ToArray ();
+		float pathLength = iTween.PathLength(path);
 		float currentPercent = 0f;
 		float absOnePercent = pathLength * 0.01f;
 		bool isDeaccelerating = false;
-		float targetSpeed = moveSpeed;
+		float targetSpeed = moveSpeed;	// How fast the player will actually move.
+		float targetTime = moveTime;// How long the movement will actually take.
+		float deAccelerationThreshold;
+		float elapsedTime = 0f;
 
-		// Adjusts target speed according to time, pathLength and acceleration.
+		// If constraint is Time, calculates target speed.
 		if(constraint == Constraint.Time)
 		{
-			targetSpeed = 30f * moveTime - Mathf.Sqrt(acceleration * acceleration * moveTime * moveTime - 2 * acceleration * pathLength);
+			targetSpeed = 0.5f * (acceleration * targetTime - Mathf.Sqrt(acceleration)*Mathf.Sqrt(acceleration * targetTime * targetTime - 4 * pathLength));
 		}
 		targetSpeed = Mathf.Min (targetSpeed, MAX_SPEED);	// Limits speed to maxSpeed
+
+		// Calculates or recalculates targetMoveTime. May be greater than moveTime because speed is capped.
+		targetTime = pathLength/targetSpeed + targetSpeed/acceleration;
+
+		// If the movement is too short to accelerate and deaccelerate, then decreases target speed.
+		if(targetTime < 2*targetSpeed/acceleration)
+		{
+			targetSpeed = 2*pathLength/targetTime;
+			targetTime = pathLength/targetSpeed + targetSpeed/acceleration;
+		}
+		deAccelerationThreshold = targetTime - (targetSpeed/acceleration);
 
 		IEnumerator accelerationCoroutine = AccelerateTo (targetSpeed, AccelerationConstraint.SetValue, acceleration);
 		StartCoroutine(accelerationCoroutine);
@@ -145,23 +157,22 @@ public class PlayerController : MonoBehaviour {
 		{
 			if(!isPaused)
 			{
-				float relativeOnePercent = Vector3.Distance(iTween.PointOnPath(waypoints, currentPercent), iTween.PointOnPath(waypoints, currentPercent + 0.01f));
+				float relativeOnePercent = Vector3.Distance(iTween.PointOnPath(path, currentPercent), iTween.PointOnPath(path, currentPercent + 0.01f));
 				float distortion = absOnePercent/relativeOnePercent;
 				currentPercent = (currentSpeed == 0) ? 1f : currentPercent + currentSpeed * distortion * playbackSpeed  * Time.deltaTime/pathLength;
 
-				iTween.PutOnPath(gameObject, waypoints, currentPercent);
-				transform.LookAt(iTween.PointOnPath(waypoints, currentPercent + 0.01f));
+				iTween.PutOnPath(gameObject, path, currentPercent);
+				transform.LookAt(iTween.PointOnPath(path, currentPercent + 0.01f));
 
-//				float brakeThresholdPercent = 1f - distortion * (targetSpeed * targetSpeed * 0.5f/30f)/pathLength;
-//				Vector3 brakeThresholdPoint = iTween.PointOnPath(waypoints, brakeThresholdPercent);
-
-//				if(Vector3.Distance(transform.position, brakeThresholdPoint) <= 0.4f && !isDeaccelerating)
-//				{
-//					StopCoroutine(accelerationCoroutine);
-//					accelerationCoroutine = AccelerateTo (0f, AccelerationConstraint.SetValue, -30f);
-//					StartCoroutine(accelerationCoroutine);
-//					isDeaccelerating = true;
-//				}
+				// Starts deaccelerating once the movement is about to finish.
+				elapsedTime += Time.deltaTime * playbackSpeed;
+				if(elapsedTime >= deAccelerationThreshold && !isDeaccelerating)
+				{
+					StopCoroutine(accelerationCoroutine);
+					accelerationCoroutine = AccelerateTo (0f, AccelerationConstraint.SetValue, -acceleration);
+					StartCoroutine(accelerationCoroutine);
+					isDeaccelerating = true;
+				}
 			}
 			yield return new WaitForEndOfFrame();
 		}
@@ -190,18 +201,16 @@ public class PlayerController : MonoBehaviour {
 			localAcceleration = value;
 			break;
 		}
-	
+			
 		while(currentSpeed != targetSpeed)
 		{ 
-			currentSpeed = (localAcceleration >= 0f) ? Mathf.Min(currentSpeed + localAcceleration * Time.deltaTime, targetSpeed) : Mathf.Max(currentSpeed + localAcceleration * Time.deltaTime, targetSpeed);
+			if(!isPaused)
+			{
+				currentSpeed = (localAcceleration >= 0f) ? Mathf.Min(currentSpeed + localAcceleration * Time.deltaTime * playbackSpeed, targetSpeed) : Mathf.Max(currentSpeed + localAcceleration * Time.deltaTime * playbackSpeed, targetSpeed);
+			}
 			yield return new WaitForEndOfFrame();
 		}
 		isAccelerating = false;
-	}
-
-	private void ForceFinishMovement()
-	{
-		transform.position = pathNodes[pathNodes.Count-1];
 	}
 
 	private void FadeOut()
