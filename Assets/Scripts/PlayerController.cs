@@ -58,7 +58,10 @@ public class PlayerController : MonoBehaviour {
 			if(!isMoving && !isAccelerating)
 			{
 				isPaused = false;
-				StartCoroutine(MoveThroughPath(pathNodes));
+				if(pathNodes.Count >= 2)
+				{
+					StartCoroutine(MoveThroughPath(pathNodes));
+				}
 			} else
 			{
 				isPaused = !isPaused;
