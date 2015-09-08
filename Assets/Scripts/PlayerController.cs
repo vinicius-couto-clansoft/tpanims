@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class PlayerController : MonoBehaviour {
-	private const float MAX_SPEED = 30f;	// Defined according to "run" animation
+	private const float MAX_SPEED = 15f;	// Defined according to "run" animation
 	private iTween.EaseType FADE_EASETYPE = iTween.EaseType.easeOutCubic;
 
 	public enum Mode { FollowClick, AddToList };
@@ -79,15 +79,15 @@ public class PlayerController : MonoBehaviour {
 			DecreasePlaybackSpeed();
 		}
 
-		if(fieldBounds.bounds.Contains(transform.position) && !inField)
-		{
-			FadeIn ();
-			inField = true;
-		} else if (!fieldBounds.bounds.Contains(transform.position) && inField)
-		{
-			FadeOut ();
-			inField = false;
-		}
+//		if(fieldBounds.bounds.Contains(transform.position) && !inField)
+//		{
+//			FadeIn ();
+//			inField = true;
+//		} else if (!fieldBounds.bounds.Contains(transform.position) && inField)
+//		{
+//			FadeOut ();
+//			inField = false;
+//		}
 
 		animator.speed = playbackSpeed;
 		animator.SetFloat("speed", currentSpeed);
